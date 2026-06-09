@@ -97,6 +97,18 @@ npm run build    # type-check + production build
 | `src/serialize.ts` | Canvas ⇄ workflow JSON |
 | `src/types.ts` | Domain + React Flow types |
 
+## Deploy (GitHub Pages)
+
+The app is built with `base: '/workflow-editor-poc/'` (see `vite.config.ts`) and
+published to the `gh-pages` branch:
+
+```bash
+npm run deploy   # builds, then pushes dist/ to the gh-pages branch
+```
+
+Pages is configured to serve the `gh-pages` branch (root). Live at
+<https://interaktivpreuss.github.io/workflow-editor-poc/>.
+
 ## License
 
 MIT — free to use, modify, and distribute. No warranty. See [LICENSE](LICENSE).

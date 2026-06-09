@@ -1,0 +1,14 @@
+# Runs the workflow-store backend. It persists workflows in Nick's
+# `workflows.json` format at ./backend/data/workflows.json.
+#
+# To feed a real Nick instance: point the volume at Nick's profile dir, i.e.
+# mount your Nick checkout's src/profiles/default/ as /data, then run
+# `pnpm seed` (or `pnpm seed:upgrade`) inside Nick to apply changes.
+services:
+  workflow-store:
+    build: ./backend
+    ports:
+      - '8090:8090'
+    volumes:
+      - ./backend/data:/data
+    restart: unless-stopped

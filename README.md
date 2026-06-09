@@ -116,13 +116,30 @@ npm run deploy   # builds, then pushes dist/ to the gh-pages branch
 Pages is configured to serve the `gh-pages` branch (root). Live at
 <https://interaktivpreuss.github.io/workflow-editor-poc/>.
 
-## Roadmap — Nick backend
+## Nick backend (`with-nick-poc`)
 
-Planned (branch `with-nick-poc`): wire this editor to a **Nick** backend
-(running as a Docker container) so you can **list** existing workflows, **open**
-one to edit, **save** changes back, and **create** new ones — as simple as
-possible. The import/export already speaks Nick's `workflows.json` format, so
-the backend integration is mostly fetch/PUT against that endpoint.
+The **☁ Nick backend** button connects the editor to a workflow store: **list**
+workflows on the server, **open** one to edit, **save** changes back, and create
+a **new** one — set the backend URL (persisted) and go.
+
+Nick itself has **no runtime API to edit workflow *definitions*** (they are
+seeded from `src/profiles/default/workflows.json` on disk; its `@workflow`
+endpoint only transitions content). So the editor talks to a tiny
+**Nick-compatible store** in [`backend/`](backend/) (zero-dependency Node) that
+persists exactly that `workflows.json` and serves it over REST
+(`GET/PUT/POST/DELETE /workflows`). To feed a **real** Nick: point the store's
+`WORKFLOWS_FILE` at Nick's profile `workflows.json` (a mounted volume) and
+re-run `pnpm seed` in Nick.
+
+```bash
+# start the store (http://localhost:8090)
+node backend/server.mjs
+# or:
+docker compose up --build
+```
+
+Then in the app, open **☁ Nick backend**, confirm the URL is `http://localhost:8090`,
+and Refresh.
 
 ## License
 

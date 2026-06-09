@@ -22,6 +22,7 @@ import TransitionEdge from './components/TransitionEdge';
 import Sidebar from './components/Sidebar';
 import Inspector from './components/Inspector';
 import JsonModal from './components/JsonModal';
+import BackendModal from './components/BackendModal';
 import { initialNodes, initialEdges } from './initialData';
 import { toWorkflow, fromWorkflow } from './serialize';
 import { layoutGraph, type LayoutDirection } from './layout';
@@ -58,7 +59,20 @@ function Editor() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
+  const [showBackend, setShowBackend] = useState(false);
   const [hover, setHover] = useState<HoverState>(null);
+  const [wfMeta, setWfMeta] = useState({
+    id: 'example_workflow',
+    title: 'Example Publication Workflow',
+    description: 'A simple private → pending → published flow.',
+  });
+  const [baseUrl, setBaseUrlState] = useState(
+    () => localStorage.getItem('wf-backend-url') ?? 'http://localhost:8090',
+  );
+  const setBaseUrl = useCallback((u: string) => {
+    setBaseUrlState(u);
+    localStorage.setItem('wf-backend-url', u);
+  }, []);
 
   const onConnect: OnConnect = useCallback(
     (conn) => {
@@ -134,6 +148,14 @@ function Editor() {
   const applyWorkflow = useCallback(
     (wf: WorkflowExport) => {
       const { nodes: n, edges: ed } = fromWorkflow(wf);
+      const w = wf.workflows?.[0];
+      if (w) {
+        setWfMeta({
+          id: w.id,
+          title: w['title:i18n'] ?? w.id,
+          description: w['description:i18n'] ?? '',
+        });
+      }
       setNodes(n);
       setEdges(ed);
       // Imported positions are placeholders — auto-align once nodes are measured.
@@ -141,6 +163,21 @@ function Editor() {
     },
     [setNodes, setEdges, autoAlign],
   );
+
+  // Start a fresh workflow with a single initial state.
+  const newBlankWorkflow = useCallback(() => {
+    const id = nextId('s');
+    setWfMeta({ id: 'new_workflow', title: 'New workflow', description: '' });
+    setNodes([
+      {
+        id,
+        type: 'state',
+        position: { x: 200, y: 200 },
+        data: { label: 'Private', color: '#64748b', initial: true, permissions: {} },
+      },
+    ]);
+    setEdges([]);
+  }, [setNodes, setEdges]);
 
   // On hover, light up the hovered state plus all its outgoing transitions.
   const onNodeMouseEnter = useCallback(
@@ -196,15 +233,7 @@ function Editor() {
   );
   const activeHighlight = hover ?? selectionHighlight;
 
-  const workflow = useMemo(
-    () =>
-      toWorkflow(nodes, edges, {
-        id: 'example_workflow',
-        title: 'Example Publication Workflow',
-        description: 'A simple private → pending → published flow.',
-      }),
-    [nodes, edges],
-  );
+  const workflow = useMemo(() => toWorkflow(nodes, edges, wfMeta), [nodes, edges, wfMeta]);
 
   return (
     <HoverContext.Provider value={activeHighlight}>
@@ -239,10 +268,17 @@ function Editor() {
             </button>
           </div>
           <button
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             onClick={() => setShowJson(true)}
           >
-            JSON export / import
+            JSON
+          </button>
+          <button
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            onClick={() => setShowBackend(true)}
+            title="Open, save, and create workflows on the Nick backend"
+          >
+            ☁ Nick backend
           </button>
         </div>
       </header>
@@ -284,6 +320,19 @@ function Editor() {
           workflow={workflow}
           onClose={() => setShowJson(false)}
           onApply={applyWorkflow}
+        />
+      )}
+
+      {showBackend && (
+        <BackendModal
+          onClose={() => setShowBackend(false)}
+          baseUrl={baseUrl}
+          setBaseUrl={setBaseUrl}
+          meta={wfMeta}
+          setMeta={setWfMeta}
+          currentExport={workflow}
+          onLoad={applyWorkflow}
+          onNewBlank={newBlankWorkflow}
         />
       )}
     </div>

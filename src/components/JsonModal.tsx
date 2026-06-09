@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import type { WorkflowDefinition } from '../types';
+import type { WorkflowExport } from '../types';
 
 export default function JsonModal({
   workflow,
   onClose,
   onApply,
 }: {
-  workflow: WorkflowDefinition;
+  workflow: WorkflowExport;
   onClose: () => void;
-  onApply: (wf: WorkflowDefinition) => void;
+  onApply: (wf: WorkflowExport) => void;
 }) {
   const initial = JSON.stringify(workflow, null, 2);
   const [text, setText] = useState(initial);
@@ -16,9 +16,10 @@ export default function JsonModal({
 
   const apply = () => {
     try {
-      const parsed = JSON.parse(text) as WorkflowDefinition;
-      if (!Array.isArray(parsed.states) || !Array.isArray(parsed.transitions)) {
-        throw new Error('JSON must contain "states" and "transitions" arrays.');
+      const parsed = JSON.parse(text) as WorkflowExport;
+      const wf = parsed.workflows?.[0];
+      if (!Array.isArray(parsed.workflows) || !wf?.json?.states || !wf.json.transitions) {
+        throw new Error('Expected Plone format: { "workflows": [ { "json": { "states", "transitions" } } ] }.');
       }
       onApply(parsed);
       onClose();

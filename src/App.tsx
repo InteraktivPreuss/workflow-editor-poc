@@ -25,8 +25,7 @@ import JsonModal from './components/JsonModal';
 import { initialNodes, initialEdges } from './initialData';
 import { toWorkflow, fromWorkflow } from './serialize';
 import { layoutGraph, type LayoutDirection } from './layout';
-import type { AppNode, AppEdge, WorkflowDefinition } from './types';
-import { ROLES } from './roles';
+import type { AppNode, AppEdge, WorkflowExport } from './types';
 import { HoverContext, type HoverState } from './HoverContext';
 
 const nodeTypes = { state: StateNode };
@@ -68,7 +67,7 @@ function Editor() {
         ...conn,
         id,
         type: 'transition',
-        data: { title: 'transition', roles: [ROLES[0].id], permissions: [] },
+        data: { title: 'transition', permission: '' },
         markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#94a3b8' },
       };
       setEdges((eds) => addEdge(newEdge, eds));
@@ -97,7 +96,7 @@ function Editor() {
           id,
           type: 'state',
           position,
-          data: { label: 'New state', color: '#6366f1' },
+          data: { label: 'New state', color: '#6366f1', permissions: {} },
         }),
       );
     },
@@ -111,19 +110,10 @@ function Editor() {
         id,
         type: 'state',
         position: { x: 200 + Math.round((idCounter % 5) * 40), y: 80 + Math.round((idCounter % 5) * 40) },
-        data: { label: 'New state', color: '#6366f1' },
+        data: { label: 'New state', color: '#6366f1', permissions: {} },
       }),
     );
   }, [setNodes]);
-
-  const applyWorkflow = useCallback(
-    (wf: WorkflowDefinition) => {
-      const { nodes: n, edges: ed } = fromWorkflow(wf);
-      setNodes(n);
-      setEdges(ed);
-    },
-    [setNodes, setEdges],
-  );
 
   const autoAlign = useCallback(
     async (direction: LayoutDirection) => {
@@ -139,6 +129,17 @@ function Editor() {
       requestAnimationFrame(() => fitView({ duration: 500, padding: 0.15 }));
     },
     [getNodes, getEdges, setNodes, setEdges, fitView],
+  );
+
+  const applyWorkflow = useCallback(
+    (wf: WorkflowExport) => {
+      const { nodes: n, edges: ed } = fromWorkflow(wf);
+      setNodes(n);
+      setEdges(ed);
+      // Imported positions are placeholders — auto-align once nodes are measured.
+      setTimeout(() => autoAlign('LR'), 250);
+    },
+    [setNodes, setEdges, autoAlign],
   );
 
   // On hover, light up the hovered state plus all its outgoing transitions.
@@ -200,6 +201,7 @@ function Editor() {
       toWorkflow(nodes, edges, {
         id: 'example_workflow',
         title: 'Example Publication Workflow',
+        description: 'A simple private → pending → published flow.',
       }),
     [nodes, edges],
   );

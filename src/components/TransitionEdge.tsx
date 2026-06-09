@@ -8,7 +8,6 @@ import {
   type EdgeProps,
 } from '@xyflow/react';
 import type { AppEdge } from '../types';
-import { roleById } from '../roles';
 import { permissionById } from '../permissions';
 import { getEdgeParams, nodeCenter } from '../floating';
 import { HoverContext } from '../HoverContext';
@@ -83,9 +82,8 @@ export default function TransitionEdge({
     return null;
   }
 
-  const roles = data?.roles ?? [];
-  const permissions = data?.permissions ?? [];
-  const empty = roles.length === 0 && permissions.length === 0;
+  const perm = data?.permission ? permissionById(data.permission) : undefined;
+  const permLabel = data?.permission ? (perm?.label ?? data.permission) : null;
 
   const stroke = highlighted ? '#a5b4fc' : selected ? HIGHLIGHT : '#94a3b8';
   const strokeWidth = highlighted ? 3 : selected ? 2.5 : 1.5;
@@ -149,39 +147,19 @@ export default function TransitionEdge({
             )}
           </div>
           {focused && (
-          <div className="flex flex-wrap justify-center gap-1">
-            {empty && (
-              <span className="rounded-full bg-slate-100 px-2 py-[1px] text-[10px] font-medium text-slate-400">
-                no guard — anyone
-              </span>
-            )}
-            {/* Role guards: solid colour-coded pills. */}
-            {roles.map((r) => {
-              const role = roleById(r);
-              return (
-                <span
-                  key={`role-${r}`}
-                  className="rounded-full px-2 py-[1px] text-[10px] font-semibold text-white"
-                  style={{ backgroundColor: role?.color ?? '#64748b' }}
-                >
-                  {role?.label ?? r}
-                </span>
-              );
-            })}
-            {/* Permission guards: outlined pills with a key glyph, visually distinct. */}
-            {permissions.map((p) => {
-              const perm = permissionById(p);
-              return (
-                <span
-                  key={`perm-${p}`}
-                  className="flex items-center gap-0.5 rounded-full border border-amber-400 bg-amber-50 px-2 py-[1px] text-[10px] font-semibold text-amber-700"
-                >
+            <div className="flex flex-wrap justify-center gap-1">
+              {/* Single guard permission (Plone guard_permissions). */}
+              {permLabel ? (
+                <span className="flex items-center gap-0.5 rounded-full border border-amber-400 bg-amber-50 px-2 py-[1px] text-[10px] font-semibold text-amber-700">
                   <span aria-hidden>🔑</span>
-                  {perm?.label ?? p}
+                  {permLabel}
                 </span>
-              );
-            })}
-          </div>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2 py-[1px] text-[10px] font-medium text-slate-400">
+                  no guard — anyone
+                </span>
+              )}
+            </div>
           )}
         </div>
       </EdgeLabelRenderer>

@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import type { AppNode, AppEdge } from '../types';
-import { ROLES, roleById } from '../roles';
+import { ROLES } from '../roles';
 import { PERMISSIONS, permissionById } from '../permissions';
-
-type GuardTab = 'roles' | 'permissions';
 
 const NODE_COLORS = [
   '#64748b', '#ef4444', '#f59e0b', '#10b981',
@@ -23,12 +20,7 @@ export default function Inspector({
   edges: AppEdge[];
 }) {
   const { updateNodeData, updateEdgeData, deleteElements, setNodes, setEdges } = useReactFlow();
-  const [guardTab, setGuardTab] = useState<GuardTab>('roles');
 
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-
-  // Select a transition (and deselect the state) so its settings panel opens.
   const selectEdge = (id: string) => {
     setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
     setEdges((es) => es.map((e) => ({ ...e, selected: e.id === id })));
@@ -36,44 +28,63 @@ export default function Inspector({
   const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id;
   const outgoing = node ? edges.filter((e) => e.source === node.id) : [];
 
-  // When a transition is selected, focus the tab that actually holds its guard.
-  const edgeId = edge?.id;
-  const hasRoles = (edge?.data?.roles.length ?? 0) > 0;
-  const hasPermissions = (edge?.data?.permissions.length ?? 0) > 0;
-  useEffect(() => {
-    if (hasPermissions && !hasRoles) setGuardTab('permissions');
-    else if (hasRoles && !hasPermissions) setGuardTab('roles');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edgeId]);
+  // Mark this state initial and clear the flag on all others (exactly one).
+  const setInitial = (id: string) =>
+    setNodes((ns) =>
+      ns.map((n) => ({ ...n, data: { ...n.data, initial: n.id === id } })),
+    );
+
+  // Toggle whether `role` holds `perm` in this state's permission map.
+  const togglePerm = (role: string, perm: string) => {
+    if (!node) return;
+    const map: Record<string, string[]> = { ...(node.data.permissions ?? {}) };
+    const has = (map[role] ?? []).includes(perm);
+    const next = has ? (map[role] ?? []).filter((p) => p !== perm) : [...(map[role] ?? []), perm];
+    if (next.length) map[role] = next;
+    else delete map[role];
+    updateNodeData(node.id, { permissions: map });
+  };
 
   return (
     <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-slate-200 bg-white p-4">
-      <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-        Inspector
-      </h2>
+      <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">Inspector</h2>
 
       {!node && !edge && (
-        <p className="text-sm text-slate-400">
-          Select a state or a transition to edit it.
-        </p>
+        <p className="text-sm text-slate-400">Select a state or a transition to edit it.</p>
       )}
 
       {node && (
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-500">
-              State name
-            </label>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">State name</label>
             <input
               className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-400"
               value={node.data.label}
               onChange={(e) => updateNodeData(node.id, { label: e.target.value })}
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={node.data.initial ?? false}
+              onChange={() => setInitial(node.id)}
+            />
+            Initial state
+          </label>
+
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-500">
-              Accent colour
-            </label>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Description</label>
+            <textarea
+              className="w-full resize-none rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-400"
+              rows={2}
+              value={node.data.description ?? ''}
+              onChange={(e) => updateNodeData(node.id, { description: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Accent colour</label>
             <div className="flex flex-wrap gap-2">
               {NODE_COLORS.map((c) => (
                 <button
@@ -87,6 +98,39 @@ export default function Inspector({
               ))}
             </div>
           </div>
+
+          {/* Per-state permission map: which roles hold which permissions here. */}
+          <div>
+            <label className="mb-2 block text-xs font-semibold text-slate-500">
+              Permissions in this state
+            </label>
+            <div className="flex flex-col gap-2">
+              {PERMISSIONS.map((p) => (
+                <div key={p.id}>
+                  <div className="mb-1 text-[11px] font-semibold text-slate-600">{p.label}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {ROLES.map((r) => {
+                      const active = (node.data.permissions?.[r.id] ?? []).includes(p.id);
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => togglePerm(r.id, p.id)}
+                          className={`rounded-full px-2 py-[1px] text-[10px] font-semibold transition ${
+                            active ? 'text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                          style={active ? { backgroundColor: r.color } : undefined}
+                          title={`${r.label} ${active ? 'has' : 'lacks'} "${p.label}"`}
+                        >
+                          {r.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <button
             className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
             onClick={() => deleteElements({ nodes: [{ id: node.id }] })}
@@ -94,7 +138,7 @@ export default function Inspector({
             Delete state
           </button>
 
-          {/* All transitions leaving this state; click one to edit it. */}
+          {/* Transitions leaving this state; click one to edit it. */}
           <div className="border-t border-slate-200 pt-3">
             <label className="mb-2 block text-xs font-semibold text-slate-500">
               Transitions from this state ({outgoing.length})
@@ -106,8 +150,7 @@ export default function Inspector({
             ) : (
               <div className="flex flex-col gap-1.5">
                 {outgoing.map((e) => {
-                  const roles = e.data?.roles ?? [];
-                  const permissions = e.data?.permissions ?? [];
+                  const perm = e.data?.permission ? permissionById(e.data.permission) : undefined;
                   return (
                     <button
                       key={e.id}
@@ -122,36 +165,16 @@ export default function Inspector({
                           → {labelOf(e.target)}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {roles.length === 0 && permissions.length === 0 && (
+                      <div className="mt-1">
+                        {e.data?.permission ? (
+                          <span className="rounded-full border border-amber-400 bg-amber-50 px-1.5 py-[1px] text-[9px] font-semibold text-amber-700">
+                            🔑 {perm?.label ?? e.data.permission}
+                          </span>
+                        ) : (
                           <span className="rounded-full bg-slate-100 px-1.5 py-[1px] text-[9px] font-medium text-slate-400">
                             no guard
                           </span>
                         )}
-                        {roles.map((r) => {
-                          const role = roleById(r);
-                          return (
-                            <span
-                              key={`r-${r}`}
-                              className="rounded-full px-1.5 py-[1px] text-[9px] font-semibold text-white"
-                              style={{ backgroundColor: role?.color ?? '#64748b' }}
-                            >
-                              {role?.label ?? r}
-                            </span>
-                          );
-                        })}
-                        {permissions.map((p) => {
-                          const perm = permissionById(p);
-                          return (
-                            <span
-                              key={`p-${p}`}
-                              className="flex items-center gap-0.5 rounded-full border border-amber-400 bg-amber-50 px-1.5 py-[1px] text-[9px] font-semibold text-amber-700"
-                            >
-                              <span aria-hidden>🔑</span>
-                              {perm?.label ?? p}
-                            </span>
-                          );
-                        })}
                       </div>
                     </button>
                   );
@@ -165,117 +188,58 @@ export default function Inspector({
       {edge && (
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-500">
-              Transition name
-            </label>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Transition name</label>
             <input
               className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-400"
               value={edge.data?.title ?? ''}
               onChange={(e) => updateEdgeData(edge.id, { title: e.target.value })}
             />
           </div>
+
           <div>
             <label className="mb-2 block text-xs font-semibold text-slate-500">
-              Transition guard
+              Guard permission
             </label>
-
-            {/* Tabs: a transition can be guarded by roles and/or permissions. */}
-            <div className="mb-3 flex rounded-lg bg-slate-100 p-0.5 text-sm font-semibold">
-              <button
-                className={`flex-1 rounded-md px-2 py-1 ${
-                  guardTab === 'roles' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
-                }`}
-                onClick={() => setGuardTab('roles')}
-              >
-                Roles
-                {(edge.data?.roles.length ?? 0) > 0 && (
-                  <span className="ml-1 text-xs text-indigo-500">
-                    {edge.data?.roles.length}
-                  </span>
-                )}
-              </button>
-              <button
-                className={`flex-1 rounded-md px-2 py-1 ${
-                  guardTab === 'permissions' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
-                }`}
-                onClick={() => setGuardTab('permissions')}
-              >
-                Permissions
-                {(edge.data?.permissions.length ?? 0) > 0 && (
-                  <span className="ml-1 text-xs text-amber-600">
-                    {edge.data?.permissions.length}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {guardTab === 'roles' && (
-              <div className="flex flex-col gap-1.5">
-                {ROLES.map((r) => {
-                  const active = edge.data?.roles.includes(r.id) ?? false;
-                  return (
-                    <button
-                      key={r.id}
-                      className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm transition ${
-                        active
-                          ? 'border-transparent text-white'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                      style={active ? { backgroundColor: r.color } : undefined}
-                      onClick={() =>
-                        updateEdgeData(edge.id, {
-                          roles: toggle(edge.data?.roles ?? [], r.id),
-                        })
-                      }
-                    >
-                      <span
-                        className="h-3 w-3 shrink-0 rounded-full border border-white/60"
-                        style={{ backgroundColor: r.color }}
-                      />
-                      {r.label}
-                      {active && <span className="ml-auto text-xs">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {guardTab === 'permissions' && (
-              <div className="flex flex-col gap-1.5">
-                {PERMISSIONS.map((p) => {
-                  const active = edge.data?.permissions.includes(p.id) ?? false;
-                  return (
-                    <button
-                      key={p.id}
-                      className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm transition ${
-                        active
-                          ? 'border-amber-400 bg-amber-50 text-amber-800'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                      onClick={() =>
-                        updateEdgeData(edge.id, {
-                          permissions: toggle(edge.data?.permissions ?? [], p.id),
-                        })
-                      }
-                    >
-                      <span aria-hidden>{active ? '🔑' : '🔒'}</span>
-                      <span className="flex flex-col leading-tight">
-                        <span>{p.label}</span>
-                        <span className="text-[10px] text-slate-400">{p.zope}</span>
-                      </span>
-                      {active && <span className="ml-auto text-xs">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <p className="mt-2 text-[11px] leading-snug text-slate-400">
-              Each category is optional. Within a category any one match is
-              enough; roles and permissions combine with AND, mirroring Plone's
-              DCWorkflow guard.
+            <p className="mb-2 text-[11px] leading-snug text-slate-400">
+              The permission a user needs to fire this transition. Who holds it is
+              set per state (above), mirroring Plone's guard_permissions.
             </p>
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={() => updateEdgeData(edge.id, { permission: '' })}
+                className={`rounded-lg border px-2 py-1.5 text-left text-sm transition ${
+                  !edge.data?.permission
+                    ? 'border-slate-400 bg-slate-100 text-slate-700'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                No guard — anyone
+                {!edge.data?.permission && <span className="ml-auto text-xs"> ✓</span>}
+              </button>
+              {PERMISSIONS.map((p) => {
+                const active = edge.data?.permission === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => updateEdgeData(edge.id, { permission: p.id })}
+                    className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm transition ${
+                      active
+                        ? 'border-amber-400 bg-amber-50 text-amber-800'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span aria-hidden>{active ? '🔑' : '🔒'}</span>
+                    <span className="flex flex-col leading-tight">
+                      <span>{p.label}</span>
+                      <span className="text-[10px] text-slate-400">{p.zope}</span>
+                    </span>
+                    {active && <span className="ml-auto text-xs">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
           <button
             className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
             onClick={() => deleteElements({ edges: [{ id: edge.id }] })}

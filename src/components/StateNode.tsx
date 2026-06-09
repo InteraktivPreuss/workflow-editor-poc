@@ -49,6 +49,15 @@ export default function StateNode({ id, data, selected }: NodeProps<AppNode>) {
         <Handle key={h.id} id={h.id} type="source" position={h.position} />
       ))}
 
+      {data.initial && (
+        <span
+          className="absolute -left-2 -top-2 rounded-full bg-indigo-600 px-1.5 py-[1px] text-[9px] font-bold text-white shadow"
+          title="Initial state"
+        >
+          ● initial
+        </span>
+      )}
+
       {editing ? (
         <input
           ref={inputRef}

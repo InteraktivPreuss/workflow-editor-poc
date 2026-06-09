@@ -7,14 +7,11 @@ export function transitionEdge(
   source: string,
   target: string,
   data: TransitionEdgeData,
-  handles?: { sourceHandle?: string; targetHandle?: string },
 ): AppEdge {
   return {
     id,
     source,
     target,
-    sourceHandle: handles?.sourceHandle,
-    targetHandle: handles?.targetHandle,
     type: 'transition',
     data,
     markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#94a3b8' },

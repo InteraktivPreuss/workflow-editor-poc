@@ -11,6 +11,10 @@ both guard kinds.
 
 > Proof of concept — there is no backend; roles and permissions are static lists.
 
+> 🌀 **Vibe-coded POC.** Built quickly and exploratively (with an AI pair). Not
+> production-hardened — expect rough edges. **Free to use** for anything
+> (MIT licensed); no warranty.
+
 ## Stack
 
 - **Vite** + **React 18** + **TypeScript**
@@ -92,3 +96,7 @@ npm run build    # type-check + production build
 | `src/edgePath.ts` | Renders ELK bend points as square paths with crossing hops |
 | `src/serialize.ts` | Canvas ⇄ workflow JSON |
 | `src/types.ts` | Domain + React Flow types |
+
+## License
+
+MIT — free to use, modify, and distribute. No warranty. See [LICENSE](LICENSE).
